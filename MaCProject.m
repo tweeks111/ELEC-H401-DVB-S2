@@ -26,31 +26,36 @@ bn_tx = (randi(2,1,Nb)-1)';                 % bn = Binary sequence
 In_tx = mapping(bn_tx,Nbps,'qam');          % In = Symbols
 
 
-N = 5000;
+fzero = (1+RollOff)/(2*T);                  % fzero = frequency at which the gain is equal to zero
+N = 50;                                    % N = Number of samples
+fmax = 5*fzero;                             % fmax = max frequency used to calculate the ifft
 
-for i=1:N/2;
-    
-    f=i*(1+RollOff)/(2*T)/(N/64);
-
+for i = 1:N/2
+    f = i*2*fmax/N;
     if (f<(1-RollOff)/(2*T))
-       H(N/2+i)=T;
-       H(N/2-i+1)=T; 
-    elseif(f<(1+RollOff)/(2*T))
-       H(N/2+i)=T*(1+cos(pi*T*(f-(1-RollOff)/(2*T))/RollOff))/2;  
-       H(N/2-i+1)=T*(1+cos(pi*T*(f-(1-RollOff)/(2*T))/RollOff))/2; 
+       H(i)=T;
+       H(N-i)=T;
+    elseif(f<fzero)
+       H(i)=T*(1+cos(pi*T*(f-(1-RollOff)/(2*T))/RollOff))/2;
+       H(N-i)=T*(1+cos(pi*T*(f-(1-RollOff)/(2*T))/RollOff))/2;
     else
-       H(N/2+i)=0;
-       H(N/2-i+1)=0;  
+       H(i)=0;
+       H(N-i)=0;
     end
 end
+H(N)=T;
 
+H=fftshift(H);
 h=ifftshift(ifft(H));
 
+fscale = -fmax+2*fmax/N:2*fmax/N:fmax;
+tscale = -N/2:1:N/2-1;
+
 figure;
-plot(1:N,H,'r-')
+plot(fscale,H,'r-')
 hold off;
 figure;
-plot(1:N,h,'r-');
+plot(tscale,h,'r-');
 hold off;
 
 %-------------------------------------%
