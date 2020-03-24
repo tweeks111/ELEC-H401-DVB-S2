@@ -9,15 +9,15 @@
 clc; clear all; close all;
 %------Parameters------%
 
-Nb= 1200;                   % Number of bits    
-Nbps= 6;                    % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6)
-CutoffFreq= 1000000;        % CutOff Frequency of the Nyquist Filter
-RollOff= 0.3;               % Roll-Off Factor
-OSF= 2;                     % Oversampling Factor
-Tsymb= 1/(2*CutoffFreq);        % Symbol Period
-BitRate= Nbps/Tsymb;            % Bit Rate
-SymRate= 1/Tsymb;               % Symbol Rate
-Fs = 4*SymRate;                % Sampling Frequency
+Nb= 1200;                           % Number of bits    
+Nbps= 6;                            % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6)
+CutoffFreq= 1000000;                % CutOff Frequency of the Nyquist Filter
+RollOff= 0.3;                       % Roll-Off Factor
+OSF= 8;                             % Oversampling Factor
+Tsymb= OSF*(1/(2*CutoffFreq));      % Symbol Period
+BitRate= Nbps/Tsymb;                % Bit Rate
+SymRate= 1/Tsymb;                   % Symbol Rate
+Fs = 4*SymRate;                     % Sampling Frequency
 
 %=============================================%
 % Mapping
@@ -27,36 +27,36 @@ bn_tx = (randi(2,1,Nb)-1)';                 % bn = Binary sequence
 In_tx = mapping(bn_tx,Nbps,'qam');          % In = Symbols sequence at transmitter
 
 
-N = 33;                                    % N = Number of taps (ODD ONLY)
+N = 51;                                        % N = Number of taps (ODD ONLY)
 df = Fs/N;                                 % Delta_f : 1 tap = df [Hz]
 fmax = df*(N-1)/2;
 fvector = linspace(-fmax,fmax,N);                   
 dt = 1/Fs;                                 % Delta_t
-tvector = (-(N-1)/2:(N-1)/2)*dt;
+tvector = linspace(-N/2,N/2,N)*dt;
 
 
+H(1:N)=0;
 i=1;
-for i=1:N
-    
+for f=fvector
     if (abs(f)<=(1-RollOff)/(2*Tsymb))
-       H(i)=sqrt(Tsymb);
+       H(i)=Tsymb;
     elseif(abs(f)<=(1+RollOff)/(2*Tsymb))
-       H(i)=sqrt(Tsymb*(1+cos(pi*Tsymb*(abs(f)-(1-RollOff)/(2*Tsymb))/RollOff))/2);  
+       H(i)=Tsymb*(1+cos(pi*Tsymb*(abs(f)-(1-RollOff)/(2*Tsymb))/RollOff))/2;  
     else
        H(i)=0;
     end
     i = i+1;
 end
 
-h =ifft(H);
+h = 
 
 
 
 figure;
-plot(fvector,H)
+plot(fvector,fftshift(H),'-*')
 hold off;
 figure;
-plot(tvector,h)
+plot(tvector,h,'-*')
 hold off;
 
 
