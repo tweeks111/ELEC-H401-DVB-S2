@@ -9,89 +9,111 @@
 clc; clear all; close all;
 %------Parameters------%
 
-Nb= 1200;                           % Number of bits    
-Nbps= 6;                            % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6)
-CutoffFreq= 1000000;                % CutOff Frequency of the Nyquist Filter
-RollOff= 0.3;                       % Roll-Off Factor
-OSF= 8;                             % Oversampling Factor
-Tsymb= OSF*(1/(2*CutoffFreq));      % Symbol Period
-BitRate= Nbps/Tsymb;                % Bit Rate
-SymRate= 1/Tsymb;                   % Symbol Rate
-Fs = 4*SymRate;                     % Sampling Frequency
+Nb= 1200;                   % Number of bits    
+Nbps= 2;                    % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6)
+CutoffFreq= 1000000;        % CutOff Frequency of the Nyquist Filter
+RollOff= 0.3;               % Roll-Off Factor
+OSF= 4;                     % Oversampling Factor
+Tsymb= 1/(2*CutoffFreq);    % Symbol Period
+BitRate= Nbps/Tsymb;        % Bit Rate
+SymRate= 1/Tsymb;           % Symbol Rate
+Fs = OSF*SymRate;           % Sampling Frequency
+N = 101;                    % Number of taps (ODD ONLY)
+EbN0 = 100;                   % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)
 
 %=============================================%
-% Mapping
+% Bit Generation
 %------------------------
 
-bn_tx = (randi(2,1,Nb)-1)';                 % bn = Binary sequence
-In_tx = mapping(bn_tx,Nbps,'qam');          % In = Symbols sequence at transmitter
+bits_tx = (randi(2,1,Nb)-1)';               % bits_tx = Binary sequence
 
-
-N = 51;                                        % N = Number of taps (ODD ONLY)
-df = Fs/N;                                 % Delta_f : 1 tap = df [Hz]
-fmax = df*(N-1)/2;
-fvector = linspace(-fmax,fmax,N);                   
-dt = 1/Fs;                                 % Delta_t
-tvector = linspace(-N/2,N/2,N)*dt;
-
-
-H(1:N)=0;
-i=1;
-for f=fvector
-    if (abs(f)<=(1-RollOff)/(2*Tsymb))
-       H(i)=Tsymb;
-    elseif(abs(f)<=(1+RollOff)/(2*Tsymb))
-       H(i)=Tsymb*(1+cos(pi*Tsymb*(abs(f)-(1-RollOff)/(2*Tsymb))/RollOff))/2;  
-    else
-       H(i)=0;
-    end
-    i = i+1;
+% Mapping
+%------------------------
+if Nbps>1
+    In_tx = mapping(bits_tx,Nbps,'qam');         % In = Symbols sequence at transmitter
+else
+    In_tx = mapping(bits_tx,Nbps,'pam');         
 end
 
-h = 
-
-
-
 figure;
-plot(fvector,fftshift(H),'-*')
-hold off;
-figure;
-plot(tvector,h,'-*')
+plot(In_tx,'r*');
 hold off;
 
+% Upsampling
+%-----------------------
+signal = zeros(Nb/Nbps*OSF,1);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
-% es(1:Nb/Nbps)=0;
-% for t = 1:Nb/Nbps
-%     for n = 1:Nb/Nbps
-%         if(t>n)
-%              es(t)=es(t)+sum(In_tx(n)*h((t-n)*k));
-%         end 
-%     end
-% end
-% 
-% er=es;
-% 
-% y(1:Nb/Nbps)=0;
-% 
-% for t = 1:Nb/Nbps
-%     for n = 1:Nb/Nbps
-%         if(t>n)
-%              y(t)=y(t)+sum(er(n)*h((t-n)*k));
-%         end 
-%     end
-% end
-% 
-% bn_rx = demapping(y',6,'qam');
-% 
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
-% ber = 0; 
-% for k=1:length(y)
-%     if(bn_rx(k) ~= bn_tx(k))
-%         ber = ber+1;
-%     end
-% end
-% ber = ber/(Nb/Nbps)
-% %-------------------------------------%
+for i = 1:Nb/Nbps
+    signal(1+OSF*(i-1))=In_tx(i);
+    for j = 2:OSF
+        signal(j+OSF*(i-1))=0;
+    end
+end
+
+% RRC Nyquist Filter TX
+%-------------------------
+
+[h_RRC,H_RRC] =  RRC(Fs,Tsymb,N,RollOff);
+signal_tx = conv(signal,h_RRC);
+
+figure("Name","Symbol sequence at transmitter");
+plot(signal_tx,"r*")
+hold off;
+
+% Noise
+%------------------
+
+SignalEnergy = (trapz(abs(In_tx).^2))*(1/Fs);
+Eb = SignalEnergy/(2*Nb);
+
+N0 = Eb/(10.^(EbN0/10));
+NoisePower = 2*N0*Fs;
+
+noise = (sqrt(NoisePower/2)*(randn(1,length(signal_tx))+1i*randn(1,length(signal_tx))))';
+
+signal_rx = signal_tx + noise;
+
+figure("Name","Noised RX signal");
+plot(signal_rx,"r*")
+hold off;
+
+% RRC Nyquist Filter RX
+%-------------------------
+
+filtered_signal_rx = conv(signal_rx,h_RRC);
+filtered_signal_rx = filtered_signal_rx(N:end-(N-1));
+
+figure("Name","Filtered RX signal");
+plot(filtered_signal_rx,"r*")
+hold off;
+
+% Downsampling
+%-------------
+
+downsampled_signal = zeros(Nb/Nbps,1);
+
+for i = 1:Nb/Nbps
+    downsampled_signal(i)=sum(filtered_signal_rx(1+OSF*(i-1):i*OSF))/OSF;
+end
+
+
+% Demapping
+%-----------
+
+if Nbps>1
+    bits_rx = demapping(downsampled_signal,Nbps,"qam");
+else
+    bits_rx = demapping(downsampled_signal,Nbps,"pam");
+end
+
+% BER
+%-----
+
+ber = 0; 
+for k=1:length(y)
+    if(bits_rx(k) ~= b(k))
+        ber = ber+1;
+    end
+end
+ber = ber/(Nb/Nbps)
+% % %-------------------------------------%
