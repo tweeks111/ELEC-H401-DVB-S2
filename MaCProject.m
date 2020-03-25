@@ -109,11 +109,11 @@ end
 % BER
 %-----
 
-ber = 0; 
-for k=1:length(y)
-    if(bits_rx(k) ~= b(k))
-        ber = ber+1;
+BER = 0; 
+for i=1:Nb
+    if(bits_rx(i) ~= b(i))
+        BER = BER+1;
     end
 end
-ber = ber/(Nb/Nbps)
-% % %-------------------------------------%
+BER = BER/Nb
+ 
