@@ -27,7 +27,7 @@ h_RC = ifft(H_RC,'symmetric');
 h_RRC = ifft(H_RRC,'symmetric');
 h_RRC = ifftshift(h_RRC/sqrt(h_RC(1)));
 h_RC = ifftshift(h_RC/h_RC(1)); 
-
+ 
 dt = 1/Fs;   
 tvector = (-(N-1)/2-1:(N-1)/2-1)*dt;
 
