@@ -1,4 +1,4 @@
-function [h_RRC,H_RRC] = RRC(Fs,Tsymb,N,RollOff)
+function [h_RRC,H_RRC] = RRC(Fs,Tsymb,N,RollOff,Nbps,AverageNb)
 % 
 % 
 % 
@@ -31,15 +31,16 @@ h_RC = ifftshift(h_RC/h_RC(1));
 dt = 1/Fs;   
 tvector = (-(N-1)/2-1:(N-1)/2-1)*dt;
 
-figure;
-plot(fvector,fftshift(H_RRC),'r-',fvector,fftshift(H_RRC),'b*');
-hold off;
-figure("Name","Impulse responses of the RC and RRC filters");
-p=zeros(1,4);
-p(1)=plot(tvector,h_RC,'r-');hold on;p(2)=plot(tvector,h_RC,'b*');hold on;
-p(3)=plot(tvector,h_RRC,'g-');hold on;p(4)=plot(tvector,h_RRC,'g*');
-hold off
-legend([p(1) p(3)],"RC","RRC");
-
+if(length(Nbps)==1&&AverageNb==1)
+    figure;
+    plot(fvector,fftshift(H_RRC),'r-',fvector,fftshift(H_RRC),'b*');
+    hold off;
+    figure("Name","Impulse responses of the RC and RRC filters");
+    p=zeros(1,4);
+    p(1)=plot(tvector,h_RC,'r-');hold on;p(2)=plot(tvector,h_RC,'b*');hold on;
+    p(3)=plot(tvector,h_RRC,'g-');hold on;p(4)=plot(tvector,h_RRC,'g*');
+    hold off
+    legend([p(1) p(3)],"RC","RRC");
+end
 end
 
