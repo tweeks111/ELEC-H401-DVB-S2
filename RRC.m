@@ -34,11 +34,12 @@ tvector = (-(N-1)/2-1:(N-1)/2-1)*dt;
 figure;
 plot(fvector,fftshift(H_RRC),'r-',fvector,fftshift(H_RRC),'b*');
 hold off;
-figure;
-plot(tvector,h_RRC,'r-',tvector,h_RRC,'b*');
-hold on;
-plot(tvector,h_RC,'g-',tvector,h_RC,'g*');
+figure("Name","Impulse responses of the RC and RRC filters");
+p=zeros(1,4);
+p(1)=plot(tvector,h_RC,'r-');hold on;p(2)=plot(tvector,h_RC,'b*');hold on;
+p(3)=plot(tvector,h_RRC,'g-');hold on;p(4)=plot(tvector,h_RRC,'g*');
 hold off
+legend([p(1) p(3)],"RC","RRC");
 
 end
 
