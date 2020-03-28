@@ -8,17 +8,17 @@
 %-------------------------------------%
 clc;clear;close all;
 %------Parameters------%
-Nb= 60000;                  % Number of bits  
-Nbps= 2;            % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
+Nb= 6000;                  % Number of bits  
+Nbps= [1 2 4 6];            % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1000000;        % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;               % Roll-Off Factor
-USF= 4;                     % Upsampling Factor
-N = 501;                    % Number of taps (ODD ONLY)
-EbN0 = 10;              % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
-AverageNb = 1;             % Number of iteration to average the BER 
+USF= 8;                     % Upsampling Factor
+N = 101;                    % Number of taps (ODD ONLY)
+EbN0 = 0:1:15;              % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+AverageNb = 50;             % Number of iteration to average the BER 
 Tsymb= 1/(2*CutoffFreq);    % Symbol Period
 SymRate= 1/Tsymb;           % Symbol Rate
-Fs = SymRate*USF;           % Sampling Frequency
+Fs = USF*SymRate;           % Sampling Frequency
 AverageBER=zeros(length(EbN0),length(Nbps));
 
 % To display graphs, put AverageNb=1, Nbps = int and EbN0 = int
@@ -57,16 +57,16 @@ end
 % RRC Nyquist Filter TX
 %-------------------------
 
-[h_RRC,H_RRC] =  RRC(Fs,Tsymb,N,RollOff,Nbps,AverageNb);
+[h_RRC,H_RRC] =  RRC(Fs,Tsymb,N,RollOff,Nbps,AverageNb,USF);
 filtered_signal_tx = conv(upsampled_signal,h_RRC);
 
 if (length(EbN0)==1 && AverageNb==1)
     figure("Name","TX signal")
     subplot(1,2,1)
-    plot(upsampled_signal,'r*')
+    plot(upsampled_signal,'ro')
     title("Upsampled TX signal")
     subplot(1,2,2)
-    plot(filtered_signal_tx,"r*")
+    plot(filtered_signal_tx,"r.")
     title("Filtered TX signal")
 end
 
@@ -108,13 +108,13 @@ end
 if (length(EbN0)==1 && AverageNb==1)
     figure("Name","RX signal");
     subplot(1,3,1);
-    plot(signal_rx,"r*")
+    plot(signal_rx,"r.")
     title("Noised RX signal");
     subplot(1,3,2);
-    plot(cropped_filtered_signal_rx,"r*")
+    plot(cropped_filtered_signal_rx,"r.")
     title("Filtered RX signal");
     subplot(1,3,3);
-    plot(downsampled_signal,"r*");
+    plot(downsampled_signal,"r.");
     title("Cropped RX signal");
 end
 % Demapping
