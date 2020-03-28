@@ -9,13 +9,13 @@
 clc;clear;close all;
 %------Parameters------%
 Nb= 6000;                  % Number of bits  
-Nbps= [1 2 4 6];            % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
+Nbps= 2;            % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1000000;        % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;               % Roll-Off Factor
-USF= 8;                     % Upsampling Factor
+USF= 4;                     % Upsampling Factor
 N = 101;                    % Number of taps (ODD ONLY)
-EbN0 = 0:1:15;              % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
-AverageNb = 50;             % Number of iteration to average the BER 
+EbN0 = 100;              % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+AverageNb = 1;             % Number of iteration to average the BER   -> more than 1 to make an average
 Tsymb= 1/(2*CutoffFreq);    % Symbol Period
 SymRate= 1/Tsymb;           % Symbol Rate
 Fs = USF*SymRate;           % Sampling Frequency
@@ -115,7 +115,7 @@ if (length(EbN0)==1 && AverageNb==1)
     title("Filtered RX signal");
     subplot(1,3,3);
     plot(downsampled_signal,"r.");
-    title("Cropped RX signal");
+    title("Downsampled RX signal");
 end
 % Demapping
 %-----------

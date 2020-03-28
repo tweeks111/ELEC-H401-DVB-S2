@@ -37,8 +37,8 @@ if(length(Nbps)==1&&AverageNb==1)
     hold off;
     figure("Name","Impulse responses of the RC and RRC filters");
     p=zeros(1,4);
-    p(1)=plot(tvector*10^6,h_RC,'r-');hold on;p(2)=plot(tvector*10^6,h_RC,'b*');hold on;
-    p(3)=plot(tvector*10^6,h_RRC,'g-');hold on;p(4)=plot(tvector*10^6,h_RRC,'g*');hold on;
+    p(1)=plot(tvector*10^6,h_RC,'r-');hold on;
+    p(3)=plot(tvector*10^6,h_RRC,'g-');hold on
     p(5)=plot(tvector((N-1)/2+1:USF:N)*10^6,h_RC((N-1)/2+1:USF:N),'bo');hold on;
     p(6)=plot(tvector((N-1)/2+1:-USF:1)*10^6,h_RC((N-1)/2+1:-USF:1),'bo');
     hold off
