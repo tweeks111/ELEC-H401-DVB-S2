@@ -8,17 +8,17 @@
 %-------------------------------------%
 clc;clear;close all;
 %------Parameters------%
-Nb= 6000;                  % Number of bits  
-Nbps= 2;            % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
-CutoffFreq= 1000000;        % CutOff Frequency of the Nyquist Filter
-RollOff= 0.3;               % Roll-Off Factor
-USF= 4;                     % Upsampling Factor
-N = 101;                    % Number of taps (ODD ONLY)
-EbN0 = 100;              % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
-AverageNb = 1;             % Number of iteration to average the BER   -> more than 1 to make an average
-Tsymb= 1/(2*CutoffFreq);    % Symbol Period
-SymRate= 1/Tsymb;           % Symbol Rate
-Fs = USF*SymRate;           % Sampling Frequency
+Nb= 600;                                        % Number of bits  
+Nbps= [1 2 4 6];                                % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
+CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
+RollOff= 0.3;                                   % Roll-Off Factor
+M= 4;                                           % Upsampling Factor
+N = 101;                                        % Number of taps (ODD ONLY)
+EbN0 = 0:1:15;                                  % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+AverageNb = 200;                                % Number of iteration to average the BER   -> more than 1 to make an average
+Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
+SymRate= 1/Tsymb;                               % Symbol Rate
+Fs = SymRate*M;                                 % Sampling Frequency
 AverageBER=zeros(length(EbN0),length(Nbps));
 
 % To display graphs, put AverageNb=1, Nbps = int and EbN0 = int
@@ -46,18 +46,18 @@ end
 % Upsampling
 %-----------------------
 
-upsampled_signal = zeros(1,Nb/Nbps(nbps)*USF);
+upsampled_signal = zeros(1,Nb/Nbps(nbps)*M);
 for i = 1:Nb/Nbps(nbps)
-    upsampled_signal(1+USF*(i-1))=signal_tx(i);
-    for j = 2:USF
-        upsampled_signal(j+USF*(i-1))=0;
+    upsampled_signal(1+M*(i-1))=signal_tx(i);
+    for j = 2:M
+        upsampled_signal(j+M*(i-1))=0;
     end
 end
 
 % RRC Nyquist Filter TX
 %-------------------------
 
-[h_RRC,H_RRC] =  RRC(Fs,Tsymb,N,RollOff,Nbps,AverageNb,USF);
+[h_RRC,H_RRC] =  RRC(Fs,Tsymb,N,RollOff,Nbps,AverageNb,M);
 filtered_signal_tx = conv(upsampled_signal,h_RRC);
 
 if (length(EbN0)==1 && AverageNb==1)
@@ -79,17 +79,17 @@ Eb = SignalEnergy/(2*Nb);
 N0 = Eb./(10.^(EbN0/10));
 NoisePower = 2*N0*Fs;
 
-noise = zeros(length(EbN0),Nb/Nbps(nbps)*USF+N-1);
-signal_rx = zeros(length(EbN0),Nb/Nbps(nbps)*USF+N-1);
+noise = zeros(length(EbN0),Nb/Nbps(nbps)*M+N-1);
+signal_rx = zeros(length(EbN0),Nb/Nbps(nbps)*M+N-1);
 for j = 1:length(EbN0)
-    noise(j,:) = sqrt(NoisePower(j)/2).*(randn(1,Nb/Nbps(nbps)*USF+N-1)+1i*randn(1,Nb/Nbps(nbps)*USF+N-1));
+    noise(j,:) = sqrt(NoisePower(j)/2).*(randn(1,Nb/Nbps(nbps)*M+N-1)+1i*randn(1,Nb/Nbps(nbps)*M+N-1));
     signal_rx(j,:) = filtered_signal_tx + noise(j,:);
 end
 % RRC Nyquist Filter RX
 %-------------------------
 
-filtered_signal_rx = zeros(length(EbN0),Nb/Nbps(nbps)*USF+2*(N-1));
-cropped_filtered_signal_rx = zeros(length(EbN0),Nb/Nbps(nbps)*USF);
+filtered_signal_rx = zeros(length(EbN0),Nb/Nbps(nbps)*M+2*(N-1));
+cropped_filtered_signal_rx = zeros(length(EbN0),Nb/Nbps(nbps)*M);
 for i =1:length(EbN0)
     filtered_signal_rx(i,:) = conv(signal_rx(i,:),fliplr(h_RRC));
     cropped_filtered_signal_rx(i,:) = filtered_signal_rx(i,N:end-(N-1));
@@ -101,7 +101,7 @@ end
 downsampled_signal = zeros(length(EbN0),Nb/Nbps(nbps));
 for j = 1:length(EbN0)
     for i = 1:Nb/Nbps(nbps)
-        downsampled_signal(j,i)=cropped_filtered_signal_rx(j,1+USF*(i-1));
+        downsampled_signal(j,i)=cropped_filtered_signal_rx(j,1+M*(i-1));
     end
 end
 
@@ -145,17 +145,18 @@ AverageBER(:,nbps) = AverageBER(:,nbps) + BER(:,1)/AverageNb;
 end
 end
 
-figure("Name","BER");
+
 if(length(EbN0)>1)
+    figure("Name","BER");
     for nbps = 1:length(Nbps)
         if(Nbps(nbps)==1) 
-            text=' 2-PAM';
+            text=' BPSK';
         elseif(Nbps(nbps)==2) 
-            text=' 4-QAM';
+            text=' QPSK';
         elseif(Nbps(nbps)==4) 
-            text='16-QAM';
+            text='16QAM';
         else
-            text ='64-QAM';
+            text ='64QAM';
         end
             
         
@@ -163,10 +164,12 @@ if(length(EbN0)>1)
        
         hold on;
     end
+    
+    hold off;
+    grid on;
+    legend('show');
+    xlabel("Eb/N0 [dB]");
+    ylabel("BER");
 end
-hold off;
-grid on;
-legend('show');
-xlabel("Eb/N0 [dB]");
-ylabel("BER");
+
 
