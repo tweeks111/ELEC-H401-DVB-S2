@@ -13,8 +13,8 @@ Nbps= 6;                    % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,6
 CutoffFreq= 1000000;        % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;               % Roll-Off Factor
 M= 4;                       % Upsampling Factor
-NVector = [5,7,9,11,13];     % Number of taps (ODD ONLY)
-EbN0 = 0:1:15;                  % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+NVector = [9,15,21,23,25,27,33,51,101];     % Number of taps (ODD ONLY)
+EbN0 = 0:1:20;                  % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
 AverageNb = 500;              % Number of iteration to average the BER   -> more than 1 to make an average
 Tsymb= 1/(2*CutoffFreq);    % Symbol Period
 SymRate= 1/Tsymb;           % Symbol Rate
