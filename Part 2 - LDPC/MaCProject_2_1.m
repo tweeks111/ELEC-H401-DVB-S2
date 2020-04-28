@@ -15,10 +15,10 @@ blockcodeRate = 0.5;
 
 % The P matrix is built from the given H matrix
 
-P = [[0 1 1 1 0],       % P = Parity Check Matrix
-     [1 0 1 0 0],
-     [1 0 1 0 1],
-     [0 0 1 1 1],
+P = [[0 1 1 1 0];       % P = Parity Check Matrix
+     [1 0 1 0 0];
+     [1 0 1 0 1];
+     [0 0 1 1 1];
      [1 1 0 0 1]].';
  
 K = size(P,1);          % Block Vector Length
@@ -31,22 +31,35 @@ G = [P I]               % G = Generator Matrix
 disp("Orthogonality check :");
 disp(mod(G*H',2))       % Orthogonality check 
 
+BER=0;
+
+for iter=1:1000
 d = randi(2,1,K)-1      % d = Message Vector
 
 u = mod(d*G,2)          % u = Codeword  -> modulo-2 multiplying
-
+randIndex = randi(N);
 r = u;                  % r = Received Vector with an error (r=u+e)
-    if(r(5)==1) 
-        r(5)=0;
-    else 
-        r(5)=1;
-    end
+
+r(randIndex)=~r(randIndex);  
     r
-    disp("                             ^");
+    spaceList=repmat('      ',1,randIndex-1);
+    disp(spaceList+"     ^");
     
 % 2. Iterative hard decoding  %
 %------------------------%
 
-hardDecoding(r,H)
+corrected_block = hardDecoding(r,H)
 
+errorNb=0;
+for i = 1:N
+    if(u(i)~=corrected_block(i))
+     errorNb = errorNb+1;
+    end
+end
+errorNb
+if(errorNb>0) BER=BER+1;
+end
+
+end
+BER=BER/1000
 
