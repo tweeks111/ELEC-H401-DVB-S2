@@ -100,7 +100,6 @@ for j = 1:length(EbN0)
     for i = 1:Nb/Nbps
         downsampled_signal(j,i)=cropped_filtered_signal_rx(j,1+M*(i-1));
     end
-end
 
 %%
 % Demapping
@@ -118,9 +117,6 @@ end
 %%
 % Soft Decoding
 %----------------
-
-variance=NoisePower/2;
-bits_rx=softDecoding(codedbits_rx,H,variance);
 
 
 

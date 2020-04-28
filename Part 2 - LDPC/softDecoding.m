@@ -1,4 +1,4 @@
-function correctedBlock = softDecoding(codeword,H)
+function correctedBlock = softDecoding(codeword,H,variance)
 
     % H = N-K*N = r*c
 [r,c] = size(H);
