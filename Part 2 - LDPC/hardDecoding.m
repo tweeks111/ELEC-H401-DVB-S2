@@ -36,7 +36,7 @@ while(sum(correctedBlock*H.')~=0 && iter<100)
     iter=iter+1;
 end
 
-disp("iter =");
-disp(iter-1);
+% disp("iter =");
+% disp(iter-1);
 
 end
