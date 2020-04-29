@@ -31,7 +31,7 @@ while(sum(mod(u*H',2))~=0 && iter<maxIter)
             Lq(idx,j)=Lc(i)+sum(Lr(index,i));
             
         end
-        LQ(j)=Lc(j)+sum(Lr(c_nodes_index,j));
+        LQ(j)=Lc(j)+sum(Lr(j,c_nodes_index));
         if(LQ(j)<0)
             u(j)=1;
         else

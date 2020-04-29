@@ -7,27 +7,23 @@ correctedBlock = codeword;
 v_nodes = codeword;
 
 
-iter=1;
-while(sum(correctedBlock*H.')~=0 && iter<=maxiter)
+iter=0;
+while(sum(correctedBlock*H.')~=0 && iter<maxiter)
     v_nodes_new = zeros(r,c);
     % STEP 1 : Calcule response of the c-nodes for every v-node
     for i = 1:r
-        v_nodes_index = find(H(i,:));
-        for j = 1:length(v_nodes_index)
-            index = v_nodes_index;
+        v_node_index = find(H(i,:));
+        for j = 1:length(v_node_index)
+            index = v_node_index;
             index(j)=[];
-            v_nodes_new(i,v_nodes_index(j))=mod(sum(v_nodes(index)),2);
+            v_nodes_new(i,v_node_index(j))=mod(sum(v_nodes(index)),2);
         end  
     end
     % STEP 2 : Majority voting
     for j = 1:c
-        c_nodes_index = find(H(:,j));
+        c_node_index = find(H(:,j));
         v_nodes_sent = v_nodes_new(:,j);
-        if(iter==1)
-            majority = (v_nodes(j)+sum(v_nodes_sent(c_nodes_index)))/(1+length(c_nodes_index));
-        else
-            majority = (sum(v_nodes_sent(c_nodes_index)))/(length(c_nodes_index));
-        end
+        majority = (codeword(j)+sum(v_nodes_sent(c_node_index)))/(1+length(c_node_index));
         
         if(majority>0.5)
             correctedBlock(j)=1;
