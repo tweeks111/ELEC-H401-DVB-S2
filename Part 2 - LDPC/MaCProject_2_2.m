@@ -9,12 +9,12 @@
 clc;clear;close all;
 addpath('../Part 1 - Communication Chain');
 %------Parameters------%
-Nbps= 4;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
+Nbps= 2;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;                                   % Roll-Off Factor
 M= 4;                                           % Upsampling Factor
-N = 101;                                         % Number of taps (ODD ONLY)
-EbN0 = 0:1:20;                                      % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+N = 23;                                         % Number of taps (ODD ONLY)
+EbN0 = 0:2:16;                                      % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
 Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
 SymRate= 1/Tsymb;                               % Symbol Rate
 Fs = SymRate*M;                                 % Sampling Frequency
@@ -24,9 +24,12 @@ CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                         % Number of bits
 AverageNb=10;
 AverageBER=zeros(1,length(EbN0));
+AverageBER_HD_1it=zeros(1,length(EbN0));
+AverageBER_HD_2it=zeros(1,length(EbN0));
 H0 = makeLdpc(BlockSize, BlockSize/CodeRate,0,1,3);
 
 for avr = 1:AverageNb
+disp(avr);
 %%
 % Bit Generation
 %------------------------
@@ -38,7 +41,7 @@ bits_tx = randi(2,1,Nb)-1;               % bits_tx = Binary sequence
 %----------------
 
 
-blocks=reshape(bits_tx,BlockSize,BlockNb);
+blocks=reshape(bits_tx,BlockSize,BlockNb);          % on divise le vecteur de bits en matrice de block
 [checkbits, H] = makeParityChk(blocks, H0, 0);
 
 blocks=blocks.';
@@ -133,14 +136,17 @@ end
 % Hard Decoding
 %----------------
 
-
 bits_rx=zeros(length(EbN0),Nb);
+bits_rx_HD_1it=zeros(length(EbN0),Nb);
+bits_rx_HD_2it=zeros(length(EbN0),Nb);
 for i = 1:length(EbN0)
     for j = 1:BlockNb
         codeword = codedbits_rx(i,(j-1)*BlockSize/CodeRate+1:j*BlockSize/CodeRate);
-        correctedCodeword=hardDecoding(codeword,H,10);
-        bits_rx(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword(BlockSize+1:BlockSize/CodeRate);
-        
+        correctedCodeword_1it=hardDecoding(codeword,H,1);
+        correctedCodeword_2it=hardDecoding(codeword,H,2);
+        bits_rx(i,(j-1)*BlockSize+1:j*BlockSize)=codeword(BlockSize+1:BlockSize/CodeRate);
+        bits_rx_HD_1it(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_1it(BlockSize+1:BlockSize/CodeRate);
+        bits_rx_HD_2it(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_2it(BlockSize+1:BlockSize/CodeRate);
     end
 end
 
@@ -149,19 +155,41 @@ end
 %----------
 
 BER =zeros(1,length(EbN0));
+BER_HD_1it =zeros(1,length(EbN0));
+BER_HD_2it =zeros(1,length(EbN0));
 for j = 1:length(EbN0)
     for i=1:Nb
         if(bits_rx(j,i) ~= bits_tx(1,i))
             BER(j) = BER(j)+1;
         end
+        if(bits_rx_HD_1it(j,i) ~= bits_tx(1,i))
+            BER_HD_1it(j) = BER_HD_1it(j)+1;
+        end
+         if(bits_rx_HD_2it(j,i) ~= bits_tx(1,i))
+            BER_HD_2it(j) = BER_HD_2it(j)+1;
+        end
     end
 BER(j) = BER(j)/Nb;
+BER_HD_1it(j) = BER_HD_1it(j)/Nb;
+BER_HD_2it(j) = BER_HD_2it(j)/Nb;
 end
 
 AverageBER=AverageBER+BER;
+AverageBER_HD_1it=AverageBER_HD_1it+BER_HD_1it;
+AverageBER_HD_2it=AverageBER_HD_2it+BER_HD_2it;
 end
 AverageBER=AverageBER/AverageNb;
-
+AverageBER_HD_1it=AverageBER_HD_1it/AverageNb;
+AverageBER_HD_2it=AverageBER_HD_2it/AverageNb;
 
 figure;
-semilogy(EbN0,AverageBER,'DisplayName',['Nbps=' num2str(Nbps)])
+semilogy(EbN0,AverageBER)
+hold on;
+semilogy(EbN0,AverageBER_HD_1it)
+hold on;
+semilogy(EbN0,AverageBER_HD_2it)
+hold off;
+grid on;
+legend('No Decoding','Hard Decoding - 1it','Hard Decoding - 2it');
+xlabel("Eb/N0 [dB]");
+ylabel("BER");

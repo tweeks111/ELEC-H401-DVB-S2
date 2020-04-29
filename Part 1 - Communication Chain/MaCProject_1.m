@@ -14,8 +14,8 @@ CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquis
 RollOff= 0.3;                                   % Roll-Off Factor
 M= 4;                                           % Upsampling Factor
 N = 23;                                         % Number of taps (ODD ONLY)
-EbN0 = 10;                                      % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
-AverageNb = 1;                                  % Number of iteration to average the BER   -> more than 1 to make an average
+EbN0 = 0:2:16;                                      % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+AverageNb = 10;                                  % Number of iteration to average the BER   -> more than 1 to make an average
 Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
 SymRate= 1/Tsymb;                               % Symbol Rate
 Fs = SymRate*M;                                 % Sampling Frequency
