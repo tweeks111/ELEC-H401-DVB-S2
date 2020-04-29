@@ -1,4 +1,4 @@
-function correctedBlock = hardDecoding(codeword,H)
+function correctedBlock = hardDecoding(codeword,H, maxiter)
 
     % H = N-K*N = r*c
 [r,c] = size(H);
@@ -8,7 +8,7 @@ v_nodes = codeword;
 
 
 iter=1;
-while(sum(correctedBlock*H.')~=0 && iter<100)
+while(sum(correctedBlock*H.')~=0 && iter<maxiter)
     v_nodes_new = zeros(r,c);
     % STEP 1 : Calcule response of the c-nodes for every v-node
     for i = 1:r

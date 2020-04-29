@@ -13,8 +13,8 @@ Nbps= 4;                                        % Number of bits per symbol (BPS
 CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;                                   % Roll-Off Factor
 M= 4;                                           % Upsampling Factor
-N = 23;                                         % Number of taps (ODD ONLY)
-EbN0 = 10;                                      % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+N = 101;                                         % Number of taps (ODD ONLY)
+EbN0 = 0:1:20;                                      % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
 Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
 SymRate= 1/Tsymb;                               % Symbol Rate
 Fs = SymRate*M;                                 % Sampling Frequency
@@ -22,8 +22,11 @@ BlockSize = 128;
 BlockNb=20;
 CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                         % Number of bits
-AverageNb=1;
+AverageNb=10;
+AverageBER=zeros(1,length(EbN0));
+H0 = makeLdpc(BlockSize, BlockSize/CodeRate,0,1,3);
 
+for avr = 1:AverageNb
 %%
 % Bit Generation
 %------------------------
@@ -34,7 +37,7 @@ bits_tx = randi(2,1,Nb)-1;               % bits_tx = Binary sequence
 % LDPC
 %----------------
 
-H0 = makeLdpc(BlockSize, BlockSize/CodeRate,0,1,3);
+
 blocks=reshape(bits_tx,BlockSize,BlockNb);
 [checkbits, H] = makeParityChk(blocks, H0, 0);
 
@@ -42,7 +45,7 @@ blocks=blocks.';
 checkbits=checkbits.';
 
 codedbits=horzcat(checkbits,blocks);
-codedbits_tx=reshape(codedbits,[],1);
+codedbits_tx=reshape(codedbits.',[],1);
 
 %%
 % Mapping
@@ -59,7 +62,7 @@ end
 %-----------------
 
 upsampled_signal = zeros(1,length(signal_tx)*M);
-for i = 1:Nb/Nbps
+for i = 1:length(signal_tx)
     upsampled_signal(1+M*(i-1))=signal_tx(i);
     for j = 2:M
         upsampled_signal(j+M*(i-1))=0;
@@ -108,7 +111,7 @@ end
 
 downsampled_signal = zeros(length(EbN0),length(signal_tx));
 for j = 1:length(EbN0)
-    for i = 1:Nb/Nbps
+    for i = 1:length(signal_tx)
         downsampled_signal(j,i)=cropped_filtered_signal_rx(j,1+M*(i-1));
     end
 end
@@ -120,9 +123,9 @@ end
 codedbits_rx = zeros(length(EbN0),length(codedbits_tx));
 for i = 1:length(EbN0)
     if Nbps>1
-        codedbits_rx(i,:) = demapping(downsampled_signal(j,:).',Nbps,"qam");
+        codedbits_rx(i,:) = demapping(downsampled_signal(i,:).',Nbps,"qam");
     else
-        codedbits_rx(i,:) = demapping(real(downsampled_signal(j,:).'),Nbps,"pam");
+        codedbits_rx(i,:) = demapping(real(downsampled_signal(i,:).'),Nbps,"pam");
     end
 end
 
@@ -130,12 +133,14 @@ end
 % Hard Decoding
 %----------------
 
+
 bits_rx=zeros(length(EbN0),Nb);
 for i = 1:length(EbN0)
     for j = 1:BlockNb
         codeword = codedbits_rx(i,(j-1)*BlockSize/CodeRate+1:j*BlockSize/CodeRate);
-        correctedCodeword=hardDecoding(codeword,H);
-        bits_rx(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword(1:BlockSize);
+        correctedCodeword=hardDecoding(codeword,H,10);
+        bits_rx(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword(BlockSize+1:BlockSize/CodeRate);
+        
     end
 end
 
@@ -143,12 +148,20 @@ end
 % BER
 %----------
 
-BER =zeros(length(EbN0),1);
+BER =zeros(1,length(EbN0));
 for j = 1:length(EbN0)
     for i=1:Nb
-        if(bits_rx(j,i) ~= bits_tx(i))
-            BER(j,1) = BER(j,1)+1;
+        if(bits_rx(j,i) ~= bits_tx(1,i))
+            BER(j) = BER(j)+1;
         end
     end
-BER(j,1) = BER(j,1)/Nb
+BER(j) = BER(j)/Nb;
 end
+
+AverageBER=AverageBER+BER;
+end
+AverageBER=AverageBER/AverageNb;
+
+
+figure;
+semilogy(EbN0,AverageBER,'DisplayName',['Nbps=' num2str(Nbps)])
