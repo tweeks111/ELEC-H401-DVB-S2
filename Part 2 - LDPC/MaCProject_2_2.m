@@ -19,13 +19,14 @@ Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
 SymRate= 1/Tsymb;                               % Symbol Rate
 Fs = SymRate*M;                                 % Sampling Frequency
 BlockSize = 128;
-BlockNb=20;
+BlockNb=6;
 CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                         % Number of bits
 AverageNb=10;
 AverageBER=zeros(1,length(EbN0));
 AverageBER_HD_1it=zeros(1,length(EbN0));
 AverageBER_HD_2it=zeros(1,length(EbN0));
+AverageBER_HD_5it=zeros(1,length(EbN0));
 H0 = makeLdpc(BlockSize, BlockSize/CodeRate,0,1,3);
 
 for avr = 1:AverageNb
@@ -139,14 +140,17 @@ end
 bits_rx=zeros(length(EbN0),Nb);
 bits_rx_HD_1it=zeros(length(EbN0),Nb);
 bits_rx_HD_2it=zeros(length(EbN0),Nb);
+bits_rx_HD_5it=zeros(length(EbN0),Nb);
 for i = 1:length(EbN0)
     for j = 1:BlockNb
         codeword = codedbits_rx(i,(j-1)*BlockSize/CodeRate+1:j*BlockSize/CodeRate);
         correctedCodeword_1it=hardDecoding(codeword,H,1);
         correctedCodeword_2it=hardDecoding(codeword,H,2);
+        correctedCodeword_5it=hardDecoding(codeword,H,5);
         bits_rx(i,(j-1)*BlockSize+1:j*BlockSize)=codeword(BlockSize+1:BlockSize/CodeRate);
         bits_rx_HD_1it(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_1it(BlockSize+1:BlockSize/CodeRate);
         bits_rx_HD_2it(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_2it(BlockSize+1:BlockSize/CodeRate);
+        bits_rx_HD_5it(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_5it(BlockSize+1:BlockSize/CodeRate);
     end
 end
 
@@ -157,6 +161,7 @@ end
 BER =zeros(1,length(EbN0));
 BER_HD_1it =zeros(1,length(EbN0));
 BER_HD_2it =zeros(1,length(EbN0));
+BER_HD_5it =zeros(1,length(EbN0));
 for j = 1:length(EbN0)
     for i=1:Nb
         if(bits_rx(j,i) ~= bits_tx(1,i))
@@ -165,22 +170,28 @@ for j = 1:length(EbN0)
         if(bits_rx_HD_1it(j,i) ~= bits_tx(1,i))
             BER_HD_1it(j) = BER_HD_1it(j)+1;
         end
-         if(bits_rx_HD_2it(j,i) ~= bits_tx(1,i))
+        if(bits_rx_HD_2it(j,i) ~= bits_tx(1,i))
             BER_HD_2it(j) = BER_HD_2it(j)+1;
+        end
+        if(bits_rx_HD_5it(j,i) ~= bits_tx(1,i))
+            BER_HD_5it(j) = BER_HD_5it(j)+1;
         end
     end
 BER(j) = BER(j)/Nb;
 BER_HD_1it(j) = BER_HD_1it(j)/Nb;
 BER_HD_2it(j) = BER_HD_2it(j)/Nb;
+BER_HD_5it(j) = BER_HD_5it(j)/Nb;
 end
 
 AverageBER=AverageBER+BER;
 AverageBER_HD_1it=AverageBER_HD_1it+BER_HD_1it;
 AverageBER_HD_2it=AverageBER_HD_2it+BER_HD_2it;
+AverageBER_HD_5it=AverageBER_HD_5it+BER_HD_5it;
 end
 AverageBER=AverageBER/AverageNb;
 AverageBER_HD_1it=AverageBER_HD_1it/AverageNb;
 AverageBER_HD_2it=AverageBER_HD_2it/AverageNb;
+AverageBER_HD_5it=AverageBER_HD_5it/AverageNb;
 
 figure;
 semilogy(EbN0,AverageBER)
@@ -188,8 +199,11 @@ hold on;
 semilogy(EbN0,AverageBER_HD_1it)
 hold on;
 semilogy(EbN0,AverageBER_HD_2it)
+hold on;
+semilogy(EbN0,AverageBER_HD_5it)
 hold off;
 grid on;
-legend('No Decoding','Hard Decoding - 1it','Hard Decoding - 2it');
+title("Hard decoding - QPSK (Nbps=2)");
+legend('No Decoding','MaxIter=1','MaxIter=2','MaxIter=5');
 xlabel("Eb/N0 [dB]");
 ylabel("BER");
