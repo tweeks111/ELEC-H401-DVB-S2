@@ -9,12 +9,12 @@
 clc;clear;close all;
 addpath('../Part 1 - Communication Chain');
 %------Parameters------%
-Nbps= 2;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
+Nbps= 6;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;                                   % Roll-Off Factor
 M= 4;                                           % Upsampling Factor
 N = 23;                                         % Number of taps (ODD ONLY)
-EbN0 = -2:1:12;                                 % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+EbN0 = -2:1:14;                                 % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
 Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
 SymRate= 1/Tsymb;                               % Symbol Rate
 Fs = SymRate*M;                                 % Sampling Frequency
@@ -24,6 +24,7 @@ CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                         % Number of bits
 AverageNb=20;
 AverageBER=zeros(1,length(EbN0));
+AverageBER_HD_0it=zeros(1,length(EbN0));
 AverageBER_HD_1it=zeros(1,length(EbN0));
 AverageBER_HD_2it=zeros(1,length(EbN0));
 AverageBER_HD_5it=zeros(1,length(EbN0));
@@ -167,6 +168,7 @@ end
 % Hard Decoding
 %----------------
 
+bits_rx_HD_0it=zeros(length(EbN0),Nb);
 bits_rx_HD_1it=zeros(length(EbN0),Nb);
 bits_rx_HD_2it=zeros(length(EbN0),Nb);
 bits_rx_HD_5it=zeros(length(EbN0),Nb);
@@ -178,6 +180,7 @@ for i = 1:length(EbN0)
         correctedCodeword_2it=hardDecoding(codeword,H,2);
         correctedCodeword_5it=hardDecoding(codeword,H,5);
         correctedCodeword_10it=hardDecoding(codeword,H,10);
+        bits_rx_HD_0it(i,(j-1)*BlockSize+1:j*BlockSize)=codeword(BlockSize+1:BlockSize/CodeRate);
         bits_rx_HD_1it(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_1it(BlockSize+1:BlockSize/CodeRate);
         bits_rx_HD_2it(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_2it(BlockSize+1:BlockSize/CodeRate);
         bits_rx_HD_5it(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_5it(BlockSize+1:BlockSize/CodeRate);
@@ -191,6 +194,7 @@ end
 %----------
 
 BER =zeros(1,length(EbN0));
+BER_HD_0it = zeros(1,length(EbN0));
 BER_HD_1it =zeros(1,length(EbN0));
 BER_HD_2it =zeros(1,length(EbN0));
 BER_HD_5it =zeros(1,length(EbN0));
@@ -199,6 +203,9 @@ for j = 1:length(EbN0)
     for i=1:Nb
         if(bits_rx(j,i) ~= bits_tx(1,i))
             BER(j) = BER(j)+1;
+        end
+        if(bits_rx_HD_0it(j,i) ~= bits_tx(1,i))
+            BER_HD_0it(j) = BER_HD_0it(j)+1;
         end
         if(bits_rx_HD_1it(j,i) ~= bits_tx(1,i))
             BER_HD_1it(j) = BER_HD_1it(j)+1;
@@ -214,6 +221,7 @@ for j = 1:length(EbN0)
         end
     end
 BER(j) = BER(j)/Nb;
+BER_HD_0it(j) = BER_HD_0it(j)/Nb;
 BER_HD_1it(j) = BER_HD_1it(j)/Nb;
 BER_HD_2it(j) = BER_HD_2it(j)/Nb;
 BER_HD_5it(j) = BER_HD_5it(j)/Nb;
@@ -221,30 +229,33 @@ BER_HD_10it(j) = BER_HD_10it(j)/Nb;
 end
 
 AverageBER=AverageBER+BER;
+AverageBER_HD_0it=AverageBER_HD_0it+BER_HD_0it;
 AverageBER_HD_1it=AverageBER_HD_1it+BER_HD_1it;
 AverageBER_HD_2it=AverageBER_HD_2it+BER_HD_2it;
 AverageBER_HD_5it=AverageBER_HD_5it+BER_HD_5it;
 AverageBER_HD_10it=AverageBER_HD_10it+BER_HD_10it;
 end
 AverageBER=AverageBER/AverageNb;
+AverageBER_HD_0it=AverageBER_HD_0it/AverageNb;
 AverageBER_HD_1it=AverageBER_HD_1it/AverageNb;
 AverageBER_HD_2it=AverageBER_HD_2it/AverageNb;
 AverageBER_HD_5it=AverageBER_HD_5it/AverageNb;
 AverageBER_HD_10it=AverageBER_HD_10it/AverageNb;
 
 figure;
-semilogy(EbN0,AverageBER)
+semilogy(EbN0,AverageBER_HD_0it)
 hold on;
-semilogy(EbN0,AverageBER_HD_1it)
-hold on;
-semilogy(EbN0,AverageBER_HD_2it)
-hold on;
-semilogy(EbN0,AverageBER_HD_5it)
-hold on;
+ semilogy(EbN0,AverageBER_HD_1it)
+ hold on;
+ semilogy(EbN0,AverageBER_HD_2it)
+ hold on;
+ semilogy(EbN0,AverageBER_HD_5it)
+ hold on;
 semilogy(EbN0,AverageBER_HD_10it)
 hold off;
 grid on;
-title("Hard decoding - QPSK (Nbps=2)");
+title("Hard decoding - 64QAM (Nbps=6)");
 legend('Uncoded','MaxIter=1','MaxIter=2','MaxIter=5','MaxIter=10');
+%legend("BPSK","BPSK Hard");
 xlabel("Eb/N0 [dB]");
 ylabel("BER");

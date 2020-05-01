@@ -33,7 +33,7 @@ disp(mod(G*H',2))       % Orthogonality check
 
 BER=0;
 
-for iter=1:1000
+
 d = randi(2,1,K)-1      % d = Message Vector
 
 u = mod(d*G,2)          % u = Codeword  -> modulo-2 multiplying
@@ -48,18 +48,21 @@ r(randIndex)=~r(randIndex);
 % 2. Iterative hard decoding  %
 %------------------------%
 
-corrected_block = hardDecoding(r,H)
+u = hardDecoding(r,H,10)
 
-errorNb=0;
-for i = 1:N
-    if(u(i)~=corrected_block(i))
-     errorNb = errorNb+1;
-    end
-end
-errorNb
-if(errorNb>0) BER=BER+1;
-end
 
-end
-BER=BER/1000
+
+
+% 
+% errorNb=0;
+% for i = 1:N
+%      errorNb = errorNb+1;
+%    
+% end
+% errorNb
+% if(errorNb>0) BER=BER+1;
+% 
+% 
+% end
+% BER=BER/1000
 

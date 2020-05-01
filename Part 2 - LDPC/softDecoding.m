@@ -1,47 +1,50 @@
-function u = softDecoding(codeword,H,variance,maxIter)
+function u = softDecoding(r,H,variance,maxiter)
 
     % H = N-K*N = r*c
-[r,c] = size(H);
+[K,N] = size(H);
 
-Lc=-2*codeword/variance;
-Lq= zeros(r,c);
-for j=1:c
-   Lq(:,j)=Lc(j);
-end
-LQ = zeros(1,c);
-u=codeword;
+v_nodes=real(-2*r/variance);
+v_to_c=zeros(K,N);
+
+u = ones(1,N);
 iter=0;
-while(sum(mod(u*H',2))~=0 && iter<maxIter)
-    Lr = zeros(r,c);
-    % STEP 1 : Calcule response of the c-nodes for every v-node
-    for i = 1:r
-        v_nodes_index = find(H(i,:));
-        for idx = 1:length(v_nodes_index)
-            index=v_nodes_index;
-            index(idx)=[];
-            Lr(i,idx)= prod(sign(Lq(index)))*min(abs(Lq(index)));
+%STEP 0 : send v_nodes to c_nodes
+
+
+
+while(iter<maxiter && norm(mod(u*H',2))~=0)
+    
+    for c = 1:N
+       index = find(H(:,c)); 
+       v_to_c(index,c)=v_nodes(c);
+    end
+
+    %STEP 1 : the message from the c_node to the v_nodes is calculated 
+    %          from the previously sent message
+    c_to_v=zeros(K,N);
+    for k=1:K
+        index = find(H(k,:));
+        for i = 1:length(index)
+            new_index=index;
+            new_index(i)=[];
+            alpha=min(abs(v_to_c(k,new_index)));
+            khi=prod(sign(v_to_c(k,new_index)));
+            c_to_v(k,index(i))= khi*alpha;
         end
     end
-    % STEP 2 :  Update check nodes
-    for j=1:c
-        c_nodes_index = find(H(:,j)); % ??
-        for idx =1:length(c_nodes_index)
-            index = c_nodes_index;
-            index(idx)=[];
-            Lq(idx,j)=Lc(i)+sum(Lr(index,i));
-            
+    % STEP 3 : majority voting
+    for c=1:N
+        index = find(H(:,c));
+        vote=v_nodes(c)+sum(c_to_v(index,c));
+        for k = 1:length(index)
+            v_to_c(index(k),c)=vote-c_to_v(index(k),c);     
         end
-        LQ(j)=Lc(j)+sum(Lr(c_nodes_index,j));
-        if(LQ(j)<0)
-            u(j)=1;
+        if(vote<0)
+            u(c)=1;
         else
-            u(j)=0;
-        end
+            u(c)=0;
+        end   
     end
-    iter=iter+1;
-end
-
-% disp("iter =");
-% disp(iter-1);
-
+    
+    iter = iter +1;
 end

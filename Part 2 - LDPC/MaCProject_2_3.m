@@ -9,12 +9,12 @@
 clc;clear;close all;
 addpath('../Part 1 - Communication Chain');
 %------Parameters------%
-Nbps= 2;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
+Nbps= 1;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;                                   % Roll-Off Factor
 M= 4;                                           % Upsampling Factor
 N = 23;                                         % Number of taps (ODD ONLY)
-EbN0 = -2:1:12;                                 % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+EbN0 = -2:1:14;                                 % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
 Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
 SymRate= 1/Tsymb;                               % Symbol Rate
 Fs = SymRate*M;                                 % Sampling Frequency
@@ -170,8 +170,9 @@ bits_rx_SD=zeros(length(EbN0),Nb);
 for i = 1:length(EbN0)
     for j = 1:BlockNb
         codeword = codedbits_rx(i,(j-1)*BlockSize/CodeRate+1:j*BlockSize/CodeRate);
+        codeword2 = downsampled_signal(i,(j-1)*BlockSize/(CodeRate*Nbps)+1:j*BlockSize/(CodeRate*Nbps));
         correctedCodeword_HD=hardDecoding(codeword,H,10);
-        correctedCodeword_SD=softDecoding(codeword,H,N0(i),10);
+        correctedCodeword_SD=softDecoding(codeword2,H,N0(i)/2,10);
         bits_rx_HD(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_HD(BlockSize+1:BlockSize/CodeRate);
         bits_rx_SD(i,(j-1)*BlockSize+1:j*BlockSize)=correctedCodeword_SD(BlockSize+1:BlockSize/CodeRate);
     end
@@ -219,7 +220,7 @@ hold on;
 semilogy(EbN0,AverageBER_SD)
 hold off;
 grid on;
-title("Hard decoding - QPSK (Nbps=2)");
+title("BPSK (Nbps=1)");
 legend('Uncoded','Hard Decoding (10 iter)','Soft Decoding (10 iter)');
 xlabel("Eb/N0 [dB]");
 ylabel("BER");
