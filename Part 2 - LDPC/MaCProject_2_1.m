@@ -7,9 +7,13 @@
 %   Date : March 16, 2020             %
 %-------------------------------------%
 clc;clear;close all;
-
 blockcodeRate = 0.5;
 
+
+%   Small-scale example of the hard decoding
+
+
+%%
 % 1. Channel encoder  %
 %---------------------%
 
