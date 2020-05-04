@@ -13,7 +13,7 @@ addpath('../Part 1 - Communication Chain');
 %     Works for Nbps = 1 only
 % 
 %------Parameters------%
-Nbps= 2;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
+Nbps= 1;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;                                   % Roll-Off Factor
 M= 4;                                           % Upsampling Factor
