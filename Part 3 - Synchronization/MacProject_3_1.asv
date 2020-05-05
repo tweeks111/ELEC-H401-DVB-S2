@@ -23,7 +23,7 @@ BlockSize = 128;
 BlockNb=6;
 CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                          % Number of bits
-AverageNb=200;
+AverageNb=50;
 H0 = makeLdpc(BlockSize, BlockSize/CodeRate,0,1,3);
 Fc = 2e9;
 ppm = [0 10 50 100];
@@ -117,13 +117,12 @@ end
 %-------------
 
 downsampled_signal = zeros(length(EbN0),length(signal_tx),length(CFO));
-t=(0:length(signal_tx)-1)*1/Fs;
+t=((0:size(cropped_filtered_signal_rx,2)-1))*1/Fs;
 for k = 1:length(CFO)
     for j = 1:length(EbN0)
         for i = 1:length(signal_tx)
             downsampled_signal(j,i,k)=cropped_filtered_signal_rx(j,1+M*(i-1),k);
         end
-        downsampled_signal(j,:,k)=downsampled_signal(j,:,k).*exp(-1j*(2*pi*CFO(k)*t*M));
     end
 end
 
