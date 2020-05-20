@@ -23,14 +23,15 @@ BlockSize = 128;
 BlockNb=6;
 CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                          % Number of bits
-%H0 = makeLdpc(BlockSize, BlockSize/CodeRate,0,1,3);
+timeShift = [0 1 2 5 10];
 Fc = 2e9;
-ppm = [0 2 10 20 50 100];
-CFO = ppm*Fc*1e-6;                              % Carrier Frequency Offset
+ppm = 0;
+CFO = ppm*Fc*1e-6;
 phase_offset_deg = 0;
 phase_offset= phase_offset_deg*pi/180;
+K=0.01;
 AverageNb= 50;
-AverageBER=zeros(length(CFO),length(EbN0));
+AverageBER=zeros(length(EbN0),length(timeShift),2);
 
 
 for avr = 1:AverageNb
@@ -87,57 +88,65 @@ for avr = 1:AverageNb
         noise(j,:) = sqrt(NoisePower(j)/2).*(randn(1,length(signal_tx)*M+N-1)+1i*randn(1,length(signal_tx)*M+N-1));
         signal_rx(j,:) = filtered_signal_tx + noise(j,:);
     end
-
+    
     %%
     % CFO & Carrier Phase Error
     %--------------------
 
     t1 = ((0:size(signal_rx,2)-1))*1/Fs;
-    signal_rx_sync_errors=zeros(length(EbN0),size(signal_rx,2),length(CFO));
+    signal_rx_sync_errors=zeros(length(EbN0),size(signal_rx,2));
     for k=1:length(CFO)
         for i = 1:length(EbN0)
-            signal_rx_sync_errors(i,:,k) = signal_rx(i,:).*exp(1j*(2*pi*CFO(k).*t1+phase_offset));
+            signal_rx_sync_errors(i,:,k) = signal_rx(i,:).*exp(1j*(2*pi*CFO.*t1+phase_offset));
         end
     end
-
+    
     %%
     % RRC Nyquist Filter RX
     %-------------------------
 
-    filtered_signal_rx = zeros(1,length(signal_tx)*M+2*(N-1));
-    cropped_filtered_signal_rx = zeros(length(EbN0),length(signal_tx)*M,length(CFO));
-    t2=((0:length(signal_tx)*M-1))*1/Fs;
-    for k = 1:length(CFO)
-        for i =1:length(EbN0)
-            filtered_signal_rx = conv(signal_rx_sync_errors(i,:,k),fliplr(h_RRC));
-            cropped_filtered_signal_rx(i,:,k) = filtered_signal_rx(N:end-(N-1));
-            cropped_filtered_signal_rx(i,:,k) = cropped_filtered_signal_rx(i,:,k).*exp(-1j*2*pi*CFO(k).*t2);
-        end                                                                      %           /\          %
-    end                                                                          %  To observe ISI only  %
+    filtered_signal_rx = zeros(length(EbN0),length(signal_tx)*M+2*(N-1));
+    for i =1:length(EbN0)
+        filtered_signal_rx(i,:) = conv(signal_rx_sync_errors(i,:),fliplr(h_RRC));
+    end                                                                      
 
+    %%
+    % Time Shift
+    %-----------------------
+    shifted_signal_rx = zeros(length(EbN0),length(filtered_signal_rx),length(timeShift));
+    cropped_filtered_signal_rx = zeros(length(EbN0),length(signal_tx)*M,length(timeShift));
+    t2=((0:length(signal_tx)*M-1))*1/Fs;
+    for k=1:length(timeShift)
+      for i = 1:length(EbN0)
+        shifted_signal_rx(i,:,k)=circshift(filtered_signal_rx(i,:),timeShift(k));
+        cropped_filtered_signal_rx(i,:,k) = shifted_signal_rx(i,N:end-(N-1),k);
+        cropped_filtered_signal_rx(i,:,k) = cropped_filtered_signal_rx(i,:,k).*exp(-1j*(2*pi*CFO.*t2));
+      end
+    end
+    
+    
     %%
     % Downsampling
     %-------------
 
-    downsampled_signal = zeros(length(EbN0),length(signal_tx),length(CFO));
-    for k = 1:length(CFO)
-        for j = 1:length(EbN0)
-            for i = 1:length(signal_tx)
-                downsampled_signal(j,i,k)=cropped_filtered_signal_rx(j,1+M*(i-1),k);
+    downsampled_signal = zeros(length(EbN0),length(signal_tx),length(timeShift));
+    for k = 1:length(timeShift)
+        for i = 1:length(EbN0)
+            for j = 1:length(signal_tx)
+                downsampled_signal(i,j,k)=cropped_filtered_signal_rx(i,1+M*(j-1),k);
             end
-            downsampled_signal(j,:,k)=downsampled_signal(j,:,k);
         end
     end
-
     %%
     %Demapping
     %-----------
 
-    bits_rx = zeros(length(EbN0),length(bits_tx),length(CFO));
-    for k = 1:length(CFO)
+    bits_rx = zeros(length(EbN0),length(bits_tx),length(timeShift));
+    bits_rx_corrected = zeros(length(EbN0),length(bits_tx),length(timeShift));
+    for k = 1:length(timeShift)
         for i = 1:length(EbN0)
             if Nbps>1
-                bits_rx(i,:,k) = demapping(downsampled_signal(i,:,k).',Nbps,"qam");
+                bits_rx(i,:,k) = demapping(downsampled_signal(i,:,k).',Nbps,"qam");    
             else
                 bits_rx(i,:,k) = demapping(real(downsampled_signal(i,:,k).'),Nbps,"pam");
             end
@@ -147,34 +156,32 @@ for avr = 1:AverageNb
     % BER
     %----------
 
-    BER =zeros(length(CFO),length(EbN0));
-    for k = 1:length(CFO)
-        for j = 1:length(EbN0)
-            for i=1:Nb
-                if(bits_rx(j,i,k) ~= bits_tx(1,i))
-                    BER(k,j) = BER(k,j)+1/Nb;
+    BER =zeros(length(EbN0),length(timeShift),2);
+    for k = 1:length(timeShift)
+        for i = 1:length(EbN0)
+            for j=1:Nb
+                if(bits_rx(i,j,k) ~= bits_tx(1,j))
+                    BER(i,k,1) = BER(i,k,1)+1/Nb;
                 end
             end
         end
     end
-
     AverageBER=AverageBER+BER;
 end
-
-
 AverageBER=AverageBER/AverageNb;
 
 
 figure;
-for k = 1:length(CFO)
-    if(CFO(k)==0)
-        label='No CFO';
+for k = 1:length(timeShift)
+    if(timeShift(k)==0)
+        label='No Time Shift';
     else
-        label=['CFO= ' num2str(ppm(k)) 'ppm']; 
+        label=['t_0 =' num2str(timeShift(k)/M) 'T']; 
     end
-semilogy(EbN0,AverageBER(k,:),'DisplayName',label);
+semilogy(EbN0,AverageBER(:,k,1),'DisplayName',label);
 hold on;
 end
+
 grid on;
 
 legend('show');
@@ -189,8 +196,8 @@ elseif(Nbps==4)
 else
     text ='64QAM ';
 end
-% 
-% txt = {['#taps= ' num2str(N)],['RollOff= ' num2str(RollOff)],['M= ' num2str(M)],['SymRate= ' num2str(SymRate*1e-6) 'MBd'],['Phase Offset=' num2str(phase_offset_deg) '°']};
-% annotation('textbox',[0.2,0.2,0.22,0.22],'String',txt,'BackgroundColor','white');
+
+% txt = {['N= ' num2str(N)],['\beta= ' num2str(RollOff)],['M= ' num2str(M)],['f_{symb}= ' num2str(SymRate*1e-6) 'MBd'],['CFO=' num2str(CFO) 'ppm | \phi_0=' num2str(phase_offset_deg) '°']};
+% annotation('textbox',[0.2,0.2,0.25,0.25],'String',txt,'BackgroundColor','white');
 
 title([text,'(Nbps=',num2str(Nbps),')']);

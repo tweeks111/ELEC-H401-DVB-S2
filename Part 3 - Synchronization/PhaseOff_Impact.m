@@ -13,7 +13,7 @@ addpath('../Part 2 - LDPC');
 Nbps= 4;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;                                   % Roll-Off Factor
-M= 8;                                          % Upsampling Factor
+M= 100;                                          % Upsampling Factor
 N = 51;                                        % Number of taps (ODD ONLY)
 EbN0 = -5:1:20;                                 % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
 Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
