@@ -13,25 +13,26 @@ addpath('../Part 2 - LDPC');
 Nbps= 4;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;                                   % Roll-Off Factor
-M= 100;                                           % Upsampling Factor
-N = 51;                                         % Number of taps (ODD ONLY)
-EbN0 = -5:1:20;                                 % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+M= 50;                                           % Upsampling Factor
+N = 16*M+1;                                            % Number of taps (ODD ONLY)
+EbN0 = 1000;                                 % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
 Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
 SymRate= 1/Tsymb;                               % Symbol Rate
 Fs = SymRate*M;                                 % Sampling Frequency
 BlockSize = 128;
-BlockNb=6;
+BlockNb=30;
 CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                          % Number of bits
 %H0 = makeLdpc(BlockSize, BlockSize/CodeRate,0,1,3);
 Fc = 2e9;
-ppm = [0 2 10 20 50 100];
+ppm = [0 2 50 100 150 175 200];
 CFO = ppm*Fc*1e-6;                              % Carrier Frequency Offset
 phase_offset_deg = 0;
 phase_offset= phase_offset_deg*pi/180;
+K=0.05;
+timeShift=20;
 AverageNb= 50;
-AverageBER=zeros(length(CFO),length(EbN0));
-
+AverageTimeError = zeros(AverageNb,Nb/Nbps,length(CFO));
 
 for avr = 1:AverageNb
     %%
@@ -80,24 +81,17 @@ for avr = 1:AverageNb
     N0 = Eb./(10.^(EbN0/10));
     NoisePower = 2*N0*Fs;
 
-    noise = zeros(length(EbN0),length(signal_tx)*M+N-1);
-    signal_rx = zeros(length(EbN0),length(signal_tx)*M+N-1);
-
-    for j = 1:length(EbN0)
-        noise(j,:) = sqrt(NoisePower(j)/2).*(randn(1,length(signal_tx)*M+N-1)+1i*randn(1,length(signal_tx)*M+N-1));
-        signal_rx(j,:) = filtered_signal_tx + noise(j,:);
-    end
+    noise = sqrt(NoisePower/2).*(randn(1,length(signal_tx)*M+N-1)+1i*randn(1,length(signal_tx)*M+N-1));
+    signal_rx = filtered_signal_tx + noise;
 
     %%
     % CFO & Carrier Phase Error
     %--------------------
 
     t1 = ((0:size(signal_rx,2)-1))*1/Fs;
-    signal_rx_sync_errors=zeros(length(EbN0),size(signal_rx,2),length(CFO));
+    signal_rx_sync_errors=zeros(size(signal_rx,2),length(CFO));
     for k=1:length(CFO)
-        for i = 1:length(EbN0)
-            signal_rx_sync_errors(i,:,k) = signal_rx(i,:).*exp(1j*(2*pi*CFO(k).*t1+phase_offset));
-        end
+       signal_rx_sync_errors(:,k) = signal_rx.*exp(1j*(2*pi*CFO(k).*t1+phase_offset));
     end
 
     %%
@@ -105,81 +99,64 @@ for avr = 1:AverageNb
     %-------------------------
 
     filtered_signal_rx = zeros(1,length(signal_tx)*M+2*(N-1));
-    cropped_filtered_signal_rx = zeros(length(EbN0),length(signal_tx)*M,length(CFO));
+    cropped_filtered_signal_rx = zeros(length(signal_tx)*M,length(CFO));
     t2=((0:length(signal_tx)*M-1))*1/Fs;
     for k = 1:length(CFO)
-        for i =1:length(EbN0)
-            filtered_signal_rx = conv(signal_rx_sync_errors(i,:,k),fliplr(h_RRC));
-            cropped_filtered_signal_rx(i,:,k) = filtered_signal_rx(N:end-(N-1));
-            cropped_filtered_signal_rx(i,:,k) = cropped_filtered_signal_rx(i,:,k).*exp(-1j*2*pi*CFO(k).*t2);
-        end                                                                      %           /\          %
+            filtered_signal_rx = conv(signal_rx_sync_errors(:,k),fliplr(h_RRC));
+            cropped_filtered_signal_rx(:,k) = filtered_signal_rx(N:end-(N-1));
+            %cropped_filtered_signal_rx(:,k) = cropped_filtered_signal_rx(i,:,k).*exp(-1j*2*pi*CFO(k).*t2);
+                                                                  %           /\          %
     end                                                                          %  To observe ISI only  %
-
+    
     %%
-    % Downsampling
+    % Time Shift
+    %-----------------------
+    downsampling_ratio=M/2;
+    shifted_signal_rx = zeros(length(signal_tx)*M,length(CFO));
+    partial_downsampled_signal_rx = zeros(length(signal_tx)*M/downsampling_ratio,length(CFO));
+    
+    for k =1:length(CFO)
+            shifted_signal_rx(:,k)=circshift(cropped_filtered_signal_rx(:,k),timeShift);
+            partial_downsampled_signal_rx(:,k) = downsample(shifted_signal_rx(:,k),downsampling_ratio);
+    end                                                          
+    
+    
+    %%
+    % Gardner
     %-------------
 
-    downsampled_signal = zeros(length(EbN0),length(signal_tx),length(CFO));
+    downsampled_signal_rx_corrected = zeros(length(signal_tx),length(CFO));
+    time_error = zeros(length(signal_tx),length(CFO));
     for k = 1:length(CFO)
-        for j = 1:length(EbN0)
-            for i = 1:length(signal_tx)
-                downsampled_signal(j,i,k)=cropped_filtered_signal_rx(j,1+M*(i-1),k);
-            end
-            downsampled_signal(j,:,k)=downsampled_signal(j,:,k);
-        end
+        [downsampled_signal_rx_corrected(:,k),time_error(:,k)]=gardner(partial_downsampled_signal_rx(:,k),K,M/downsampling_ratio);
+        AverageTimeError(avr,:,k)=time_error(:,k);
     end
-
-    %%
-    %Demapping
-    %-----------
-
-    bits_rx = zeros(length(EbN0),length(bits_tx),length(CFO));
-    for k = 1:length(CFO)
-        for i = 1:length(EbN0)
-            if Nbps>1
-                bits_rx(i,:,k) = demapping(downsampled_signal(i,:,k).',Nbps,"qam");
-            else
-                bits_rx(i,:,k) = demapping(real(downsampled_signal(i,:,k).'),Nbps,"pam");
-            end
-        end
-    end
-    %%
-    % BER
-    %----------
-
-    BER =zeros(length(CFO),length(EbN0));
-    for k = 1:length(CFO)
-        for j = 1:length(EbN0)
-            for i=1:Nb
-                if(bits_rx(j,i,k) ~= bits_tx(1,i))
-                    BER(k,j) = BER(k,j)+1/Nb;
-                end
-            end
-        end
-    end
-
-    AverageBER=AverageBER+BER;
+    
 end
 
-
-AverageBER=AverageBER/AverageNb;
-
-
-figure;
-for k = 1:length(CFO)
-    if(CFO(k)==0)
-        label='No CFO';
-    else
-        label=['CFO= ' num2str(ppm(k)) 'ppm']; 
+MeanTimeError = zeros(Nb/Nbps,length(CFO));
+    for k = 1:length(CFO)
+        MeanTimeError(:,k) = mean(AverageTimeError(:,:,k));
+        MeanTimeError(:,k)=(MeanTimeError(:,k)+timeShift/M);
     end
-semilogy(EbN0,AverageBER(k,:),'DisplayName',label);
-hold on;
+colorVector = ['r','b','g','m','c','k','y'];
+    Legend=cell(length(CFO));
+    
+for i = 1:length(CFO)
+   vector = 1:25:Nb/Nbps;
+
+   p(i) = plot(vector,MeanTimeError(vector,i),[colorVector(i) 'o-']);
+   hold on;
+   Legend{i}=['CFO=' num2str(ppm(i)) 'ppm'];
 end
+
+legend(p(1:length(CFO)),Legend(1:length(CFO)));
+
 grid on;
 
 legend('show');
-xlabel("Eb/N0 [dB]");
-ylabel("BER");
+xlabel("Symbols");
+ylabel("Time error (mean)");
 if(Nbps==1) 
     text='BPSK ';
 elseif(Nbps==2) 

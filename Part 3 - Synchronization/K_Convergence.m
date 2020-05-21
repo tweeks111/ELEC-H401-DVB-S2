@@ -128,7 +128,7 @@ end
         MeanTimeError(:,k)=(MeanTimeError(:,k)+timeShift/M);
         VarianceTimeError(:,k) = std(AverageTimeError(:,:,k));
     end
-    colorVector = ['r','b','g','y','p','c'];
+colorVector = ['r','b','g','y','m','c','k',];
     Legend=cell(length(K));
 for i = 1:length(K)
    vector = 1:25:Nb/Nbps;
