@@ -10,12 +10,12 @@ clc;clear;close all;
 addpath('../Part 1 - Communication Chain');
 addpath('../Part 2 - LDPC');
 %------Parameters------%
-Nbps=4;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
+Nbps=2;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;                                   % Roll-Off Factor
 M= 50;                                          % Upsampling Factor
 N = 16*M+1;                                     % Number of taps (ODD ONLY)
-EbN0 = [ -4 -2 0 2 4 6 ];                                    % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+EbN0 = 0:2:16;                                    % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
 Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
 SymRate= 1/Tsymb;                               % Symbol Rate
 Fs = SymRate*M;                                 % Sampling Frequency
@@ -23,16 +23,20 @@ BlockSize = 128;
 BlockNb=10;
 CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                          % Number of bits
-timeShift = 20;
+timeShift = 0;
 Fc = 2e9;
 ppm = 0;
 CFO = ppm*Fc*1e-6;
 phase_offset_deg = 0;
 phase_offset= phase_offset_deg*pi/180;
 K=0.05;
-AverageNb= 50;
-AverageTimeError = zeros(length(EbN0),Nb/Nbps,AverageNb);
+AverageNb= 100;
 
+
+ToA = 34;
+pilot_size = 20;
+avgWindow_size = [1 8 16];
+AverageTimeError = zeros(AverageNb,length(EbN0),length(avgWindow_size));
 
 for avr = 1:AverageNb
     %%
@@ -51,7 +55,16 @@ for avr = 1:AverageNb
     else
             signal_tx = mapping(bits_tx.',Nbps,'pam').';         % Symbols sequence at transmitter   
     end
+    
+    %%
+    %Divide msg into unuseful data, pilot, symbols
+    %----------------------------------------------
 
+    unuseful = signal_tx(1:ToA-1);
+   
+    pilot = signal_tx(ToA : ToA+pilot_size-1);
+    symbols = signal_tx(ToA+pilot_size: end);
+    
     %%
     % Upsampling
     %-----------------
@@ -89,9 +102,7 @@ for avr = 1:AverageNb
         signal_rx(j,:) = filtered_signal_tx + noise(j,:);
     end
     
-    
 
-    
     %%
     % RRC Nyquist Filter RX
     %-------------------------
@@ -113,90 +124,61 @@ for avr = 1:AverageNb
         %cropped_filtered_signal_rx(i,:,k) = cropped_filtered_signal_rx(i,:,k).*exp(-1j*(2*pi*CFO.*t2));
     end
 
-    %%
-    % Gardner
-    %-------------
-    downsampling_ratio=M/2;
-    partial_downsampled_signal_rx = zeros(length(EbN0),size(cropped_filtered_signal_rx,2)/downsampling_ratio);
-    downsampled_signal_rx_corrected = zeros(length(EbN0),length(signal_tx));
-    time_error = zeros(length(EbN0),length(signal_tx));
-    for i = 1:length(EbN0)
-        partial_downsampled_signal_rx(i,:) = downsample(cropped_filtered_signal_rx(i,:),downsampling_ratio);
-        [downsampled_signal_rx_corrected(i,:),time_error(i,:)]=gardner(partial_downsampled_signal_rx(i,:),K,M/downsampling_ratio);
-        AverageTimeError(i,:,avr)=time_error(i,:);
-    end
-
 %     %%
-%     % Downsampling
+%     % Gardner
 %     %-------------
-% 
-%     downsampled_signal = zeros(length(EbN0),length(signal_tx));
+%     downsampling_ratio=M/2;
+%     partial_downsampled_signal_rx = zeros(length(EbN0),size(cropped_filtered_signal_rx,2)/downsampling_ratio);
+%     downsampled_signal_rx_corrected = zeros(length(EbN0),length(signal_tx));
+%     time_error = zeros(length(EbN0),length(signal_tx));
 %     for i = 1:length(EbN0)
-%         for j = 1:length(signal_tx)
-%             downsampled_signal(i,j)=cropped_filtered_signal_rx(i,1+M*(j-1));
-%         end
+%         partial_downsampled_signal_rx(i,:) = downsample(cropped_filtered_signal_rx(i,:),downsampling_ratio);
+%         [downsampled_signal_rx_corrected(i,:),time_error(i,:)]=gardner(partial_downsampled_signal_rx(i,:),K,M/downsampling_ratio);
 %     end
-%     
-%     %%
-%     %Demapping
-%     %-----------
-% 
-%     bits_rx = zeros(length(EbN0),length(bits_tx));
-%     bits_rx_corrected = zeros(length(EbN0),length(bits_tx));
-%     for i = 1:length(EbN0)
-%         if Nbps>1
-%             bits_rx(i,:) = demapping(downsampled_signal(i,:).',Nbps,"qam");    
-%         else
-%             bits_rx(i,:) = demapping(real(downsampled_signal(i,:).'),Nbps,"pam");
-%         end
-%     end
-%     %%
-%     % BER
-%     %----------
-% 
-%     BER =zeros(length(EbN0));
-%     for i = 1:length(EbN0)
-%         for j=1:Nb
-%             if(bits_rx(i,j) ~= bits_tx(1,j))
-%                 BER(i) = BER(i)+1/Nb;
-%             end
-%         end
-%     end
-%   
-%     AverageBER=AverageBER+BER;
-
-end
-
-
-MeanTimeError = zeros(length(EbN0),Nb/Nbps);
-VarianceTimeError = zeros(length(EbN0),Nb/Nbps);
-matrix = zeros(AverageNb,Nb/Nbps);
-for i = 1:length(EbN0)
-    for j = 1:AverageNb
-         matrix(j,:) = AverageTimeError(i,:,j);
+    
+    %%
+    % Downsample
+    %-----------------
+    
+    downsampled_signal_rx = zeros(length(EbN0),length(signal_tx));
+    for i = 1:length(EbN0)
+        downsampled_signal_rx(i,:) = downsample(cropped_filtered_signal_rx(i,:),M);
     end
-    MeanTimeError(i,:) = mean(matrix);
-    MeanTimeError(i,:)=(MeanTimeError(i,:)+timeShift/M);
-    VarianceTimeError(i,:) = std(matrix);
+    
+    %%
+    % Data acquisition
+    %-----------------------------------
+
+    for i = 1:length(EbN0)
+            [est_ToA, est_CFO] = dataAcquisition(downsampled_signal_rx(i,:),pilot,avgWindow_size(1), Tsymb);
+            AverageTimeError(avr,i,1)=abs(est_ToA-ToA);
+            [est_ToA, est_CFO] = dataAcquisition(downsampled_signal_rx(i,:),pilot,avgWindow_size(2), Tsymb);
+            AverageTimeError(avr,i,2)=abs(est_ToA-ToA);
+            [est_ToA, est_CFO] = dataAcquisition(downsampled_signal_rx(i,:),pilot,avgWindow_size(3), Tsymb);
+            AverageTimeError(avr,i,3)=abs(est_ToA-ToA);
+    end
+
+    
 end
-colorVector = ['r','b','g','y','m','c','k',];
-Legend=cell(length(EbN0));
-for i = 1:length(EbN0)
-   vector = 1:25:Nb/Nbps;
 
-   p(i) = plot(vector,MeanTimeError(i,vector),[colorVector(i) 'o-']);
-   hold on;
-%    plot(vector,MeanTimeError(i,vector)-VarianceTimeError(i,vector),[colorVector(i) '--']);
-%    hold on;
-%    plot(vector,MeanTimeError(i,vector)+VarianceTimeError(i,vector),[colorVector(i) '--']);
-   Legend{i}=['EbN0=' num2str(EbN0(i))];
-end
+VarianceTimeError = zeros(length(EbN0),length(avgWindow_size));
+for i=1:length(avgWindow_size)
+    for j = 1:length(EbN0)
+        matrix = AverageTimeError(:,j,i).';
+        VarianceTimeError(j,i) = std(matrix);
+    end
+end 
 
-legend(p(1:length(EbN0)),Legend(1:length(EbN0)));
-
+plot(EbN0,VarianceTimeError(:,1),'ro-');
+hold on;
+plot(EbN0,VarianceTimeError(:,2),'bo-');
+hold on;
+plot(EbN0,VarianceTimeError(:,3),'go-');
+hold on;
 grid on;
-xlabel("Symbols");
-ylabel("Standard eviation");%±deviation
+xlabel("EbN0");
+ylabel("Time error stdev");%±deviation
+
 if(Nbps==1) 
     text='BPSK ';
 elseif(Nbps==2) 

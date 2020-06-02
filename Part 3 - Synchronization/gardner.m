@@ -1,7 +1,6 @@
 function [r_corrected,est_time_error] = gardner(r,K,OSF)
     
     % NB : the downsampling is done at the same time
-    % NB2 : pchip=cubic
     
     y_eps = zeros(1,length(r)/OSF);
     est_time_error = zeros(1,length(r)/OSF);

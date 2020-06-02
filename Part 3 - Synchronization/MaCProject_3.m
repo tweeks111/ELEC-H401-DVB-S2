@@ -10,12 +10,12 @@ clc;clear;close all;
 addpath('../Part 1 - Communication Chain');
 addpath('../Part 2 - LDPC');
 %------Parameters------%
-Nbps= 4;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
+Nbps= 1;                                        % Number of bits per symbol (BPSK=1,QPSK=2,16QAM=4,64QAM=6) -> vector to compare 
 CutoffFreq= 1e6;                                % CutOff Frequency of the Nyquist Filter
 RollOff= 0.3;                                   % Roll-Off Factor
 M= 50;                                           % Upsampling Factor
 N = 16*M+1;                                            % Number of taps (ODD ONLY)
-EbN0 = 1000;                                 % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
+EbN0 = 10;                                 % Eb to N0 ratio  (Eb = bit energy, N0 = noise PSD)  -> vector to compare BER
 Tsymb= 1/(2*CutoffFreq);                        % Symbol Period
 SymRate= 1/Tsymb;                               % Symbol Rate
 Fs = SymRate*M;                                 % Sampling Frequency
@@ -25,15 +25,19 @@ CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                          % Number of bits
 %H0 = makeLdpc(BlockSize, BlockSize/CodeRa te,0,1,3);
 Fc = 2e9;
-ppm = 0;
+ppm = 10;
 CFO = ppm*Fc*1e-6;                              % Carrier Frequency Offset
 phase_offset_deg = 0;
 phase_offset= phase_offset_deg*pi/180;
 K=0.05;
-timeShift=20;
+timeShift=10;
 AverageNb= 50;
 AverageTimeError = zeros(AverageNb,Nb/Nbps);
 AverageBER=0;
+
+pilot_pos = 34;
+pilot_size = 20;
+avgWindow_size = 8;
 
 for avr = 1:AverageNb
     %%
@@ -42,7 +46,7 @@ for avr = 1:AverageNb
     
     disp(avr);
     bits_tx = randi(2,1,Nb)-1;               % bits_tx = Binary sequence
-
+    
     %%
     % Mapping
     %------------------------
@@ -52,6 +56,14 @@ for avr = 1:AverageNb
     else
             signal_tx = mapping(bits_tx.',Nbps,'pam').';         % Symbols sequence at transmitter   
     end
+    
+    %%
+    %Divide msg into unuseful data, pilot, symbols
+    %----------------------------------------------
+
+    unuseful = signal_tx(1:pilot_pos-1);
+    pilot = signal_tx(pilot_pos : pilot_pos+pilot_size-1);
+    symbols = signal_tx(pilot_pos+pilot_size : end);
 
     %%
     % Upsampling
@@ -96,12 +108,8 @@ for avr = 1:AverageNb
     % RRC Nyquist Filter RX
     %-------------------------
 
-    t2=((0:length(signal_tx)*M-1))*1/Fs;
     filtered_signal_rx = conv(signal_rx_sync_errors,fliplr(h_RRC));
     cropped_filtered_signal_rx = filtered_signal_rx(N:end-(N-1));
-    ISI_filtered_signal_rx = cropped_filtered_signal_rx.*exp(-1j*2*pi*CFO*t2);
-                                                          %           /\          %
-                                                          %  To observe ISI only  %
     
     %%
     % Time Shift
@@ -109,7 +117,7 @@ for avr = 1:AverageNb
     
     downsampling_ratio=M/2;
 
-    shifted_signal_rx=circshift(ISI_filtered_signal_rx,timeShift);
+    shifted_signal_rx=circshift(cropped_filtered_signal_rx,timeShift);
     partial_downsampled_signal_rx = downsample(shifted_signal_rx,downsampling_ratio);                                                  
     
     %%
@@ -118,16 +126,25 @@ for avr = 1:AverageNb
 
     [downsampled_signal_rx_corrected,time_error]=gardner(partial_downsampled_signal_rx,K,M/downsampling_ratio);
     AverageTimeError(avr,:)=time_error;
+    
+    %%
+    % Data acquisition
+    %-----------------------------------
 
+    [toa, est_CFO] = dataAcquisition(downsampled_signal_rx_corrected,pilot,avgWindow_size, Tsymb);
+    disp(["ToA :" num2str(toa)]);
+    disp(["Estimated CFO : " num2str(est_CFO)]);
+    t2=((0:length(signal_tx)-1))*Tsymb;
+    cfo_corrected_signal_rx = downsampled_signal_rx_corrected.*exp(-1j*2*pi*est_CFO*t2);
     
     %%
     %Demapping
     %-----------
     
     if Nbps>1
-        bits_rx = demapping(downsampled_signal_rx_corrected.',Nbps,"qam");    
+        bits_rx = demapping(cfo_corrected_signal_rx.',Nbps,"qam");    
     else
-        bits_rx = demapping(real(downsampled_signal_rx_corrected.'),Nbps,"pam");
+        bits_rx = demapping(real(cfo_corrected_signal_rx.'),Nbps,"pam");
     end
     
     %%
@@ -145,7 +162,7 @@ for avr = 1:AverageNb
   
     AverageBER=AverageBER+BER/AverageNb;
 end
-    disp(AverageBER);
+    disp(["BER = " AverageBER]);
 
 %%
 % PLOTS

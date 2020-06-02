@@ -25,7 +25,7 @@ CodeRate = 1/2;
 Nb= BlockSize*BlockNb;                          % Number of bits
 %H0 = makeLdpc(BlockSize, BlockSize/CodeRate,0,1,3);
 Fc = 2e9;
-ppm = [0 2 50 100 150 175 200];
+ppm = [2 20 50 150 200];
 CFO = ppm*Fc*1e-6;                              % Carrier Frequency Offset
 phase_offset_deg = 0;
 phase_offset= phase_offset_deg*pi/180;
@@ -135,9 +135,11 @@ for avr = 1:AverageNb
 end
 
 MeanTimeError = zeros(Nb/Nbps,length(CFO));
+VarianceTimeError = zeros(Nb/Nbps,length(CFO));
     for k = 1:length(CFO)
         MeanTimeError(:,k) = mean(AverageTimeError(:,:,k));
         MeanTimeError(:,k)=(MeanTimeError(:,k)+timeShift/M);
+        VarianceTimeError(:,k)=std(AverageTimeError(:,:,k));
     end
 colorVector = ['r','b','g','m','c','k','y'];
     Legend=cell(length(CFO));
@@ -146,6 +148,10 @@ for i = 1:length(CFO)
    vector = 1:25:Nb/Nbps;
 
    p(i) = plot(vector,MeanTimeError(vector,i),[colorVector(i) 'o-']);
+   hold on;
+   plot(vector,MeanTimeError(vector,i)-VarianceTimeError(vector,i),[colorVector(i) '--']);
+   hold on;
+   plot(vector,MeanTimeError(vector,i)+VarianceTimeError(vector,i),[colorVector(i) '--']);
    hold on;
    Legend{i}=['CFO=' num2str(ppm(i)) 'ppm'];
 end
@@ -156,7 +162,7 @@ grid on;
 
 legend('show');
 xlabel("Symbols");
-ylabel("Time error (mean)");
+ylabel("Time error (mean±deviation)");
 if(Nbps==1) 
     text='BPSK ';
 elseif(Nbps==2) 
